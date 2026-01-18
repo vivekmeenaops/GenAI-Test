@@ -35,7 +35,7 @@ jobs:
       - name: Start Ollama service
         run: |
           ollama serve &
-          sleep 30
+          sleep 20
 
       - name: Pull Ollama model
         run: |
@@ -46,15 +46,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate Dockerfile
+      - name: Generate Dockerfile using Ollama
+        env:
+          OLLAMA_MODEL: ${{ github.event.inputs.ollama_model }}
         run: |
           python generate_dockerfile.py "${{ github.event.inputs.script_param }}"
+
+      - name: Debug output
+        run: |
+          echo "Repo root:"
+          ls -la
+          echo "Dockerfile-Generated:"
+          ls -la Dockerfile-Generated || echo "Not found"
 
       - name: Commit generated Dockerfile
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add Dockerfile-Generated/
-          git commit -m "Generate Dockerfile for ${{ github.event.inputs.script_param }}" || echo "No changes to commit"
-          git push
+          if [ -d Dockerfile-Generated ] && [ "$(ls -A Dockerfile-Generated)" ]; then
+            git add Dockerfile-Generated/
+            git commit -m "Generate Dockerfile for ${{ github.event.inputs.script_param }}" || echo "Nothing to commit"
+            git push
+          else
+            echo "No files generated, skipping commit"
+          fi
